@@ -1,0 +1,89 @@
+/* VK Chat Mute — styles injected into vk.com */
+
+.vkcm-hidden {
+  display: none !important;
+}
+
+.vkcm-collapsed {
+  opacity: 0.55;
+}
+
+.vkcm-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 12px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.3;
+  color: #8b97ad;
+  background: rgba(11, 18, 32, 0.72);
+  border: 1px solid rgba(47, 128, 237, 0.18);
+  user-select: none;
+}
+
+.vkcm-placeholder button {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: #2f80ed;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.vkcm-mute-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #99a2ad;
+  cursor: pointer;
+  opacity: 0;
+  vertical-align: middle;
+  padding: 0;
+  line-height: 1;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.vkcm-mute-btn:hover,
+.vkcm-mute-btn.is-muted {
+  opacity: 1;
+  color: #e64646;
+  background: rgba(230, 70, 70, 0.12);
+}
+
+.im-mess-stack:hover .vkcm-mute-btn,
+[class*="ConvoHistory"]:hover .vkcm-mute-btn,
+.vkcm-author-host:hover .vkcm-mute-btn {
+  opacity: 1;
+}
+
+.vkcm-toast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 2147483646;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #0b1220;
+  color: #e8eef8;
+  border: 1px solid rgba(79, 210, 255, 0.28);
+  font-size: 13px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.vkcm-toast.is-on {
+  opacity: 1;
+  transform: translateY(0);
+}

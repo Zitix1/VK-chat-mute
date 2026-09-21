@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>ZTX Chat Mute</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="glow"></div>
+
+  <header>
+    <img class="mark" src="brand/ztx-mark.jpg" alt="ZTX" />
+    <div class="titles">
+      <div class="brandline">
+        <span class="ztx">ZTX</span>
+        <span class="inc">inc.</span>
+      </div>
+      <p>Chat Mute</p>
+    </div>
+  </header>
+
+  <section class="card">
+    <label class="switch-row">
+      <span>Плагин включён</span>
+      <input id="enabled" type="checkbox" checked />
+    </label>
+    <label class="switch-row">
+      <span>Жёсткий режим: полностью прятать</span>
+      <input id="hardHide" type="checkbox" checked />
+    </label>
+  </section>
+
+  <form id="addForm" class="card add">
+    <input id="addInput" type="text" placeholder="id / ссылка / @username" autocomplete="off" />
+    <button type="submit">Mute</button>
+  </form>
+
+  <section class="card list-card">
+    <div class="list-head">
+      <span>Замьюченные</span>
+      <button id="clearAll" type="button">очистить</button>
+    </div>
+    <ul id="list"></ul>
+  </section>
+
+  <footer>Chrome only</footer>
+  <script src="popup.js"></script>
+</body>
+</html>

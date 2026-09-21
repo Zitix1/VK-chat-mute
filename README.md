@@ -59,8 +59,6 @@ privacy.html
 
 Файл: [privacy.html](./privacy.html)
 
-Если будешь публиковать в Chrome Web Store, этот файл нужно выложить по публичному https-адресу и вставить ссылку в карточку магазина.
-
 ## Лицензия
 
 MIT. См. [LICENSE](./LICENSE).

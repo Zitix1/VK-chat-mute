@@ -218,12 +218,24 @@ li {
 }
 
 footer {
-  text-align: center;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
   color: #66758c;
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   padding-top: 4px;
+}
+
+footer span:first-child {
+  grid-column: 2;
+}
+
+#ver {
+  grid-column: 3;
+  justify-self: end;
+  letter-spacing: 0.04em;
 }
 
 input[type="checkbox"] {

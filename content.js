@@ -90,12 +90,23 @@
     return out;
   }
 
-  function findPerson(info) {
-    return Object.values(muted).find((person) => samePerson(person, info)) || null;
+  function cleanName(name) {
+    return String(name || "")
+      .toLowerCase()
+      .replace(/[\u200b-\u200d\ufeff]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
   function isMuted(info) {
-    return Boolean(findPerson(info));
+    if (!info) return false;
+    const name = cleanName(info.name);
+    return Object.values(muted).some((person) => {
+      if (info.id && person.id && String(info.id) === String(person.id)) return true;
+      if (info.nick && person.nick && String(info.nick).toLowerCase() === String(person.nick).toLowerCase()) return true;
+      const theirs = cleanName(person.name);
+      return name.length > 1 && theirs.length > 1 && name === theirs;
+    });
   }
 
   function parseUserFromHref(href) {
@@ -151,48 +162,50 @@
     return scored[0] || null;
   }
 
-  function collectNumericId(root) {
-    const nodes = [root, ...root.querySelectorAll("[data-peer], [data-from], [data-from-id], [data-userid], [data-user-id], [data-author-id]")];
-    for (const el of nodes) {
-      if (!el?.dataset) continue;
-      for (const value of Object.values(el.dataset)) {
-        if (!/^-?\d+$/.test(String(value)) || value === "0") continue;
-        const num = Number(value);
-        if (num >= 2000000000) continue;
-        return String(value);
-      }
+  function authorLink(root) {
+    const named = root.querySelector(
+      "a[class*='authorLink'], a[class*='Author'], .im-mess-stack--lnk, [class*='authorLink'] a[href], [class*='MessageHeader'] a[href], [class*='PeerTitle']"
+    );
+    const fromTitle = named?.closest?.("a[href]") || (named?.matches?.("a[href]") ? named : null);
+    if (fromTitle && parseUserFromHref(fromTitle.getAttribute("href"))) return fromTitle;
+    return findAuthorLink(root)?.a || null;
+  }
+
+  function authorIdFromData(root) {
+    const nodes = root.querySelectorAll("[data-from], [data-from-id], [data-author-id], [data-userid]");
+    for (const el of [root, ...nodes]) {
+      const raw = el?.dataset?.from || el?.dataset?.fromId || el?.dataset?.authorId || el?.dataset?.userid || "";
+      if (/^-?\d+$/.test(String(raw)) && raw !== "0" && Number(raw) < 2000000000) return String(raw);
     }
     return null;
   }
 
   function getMessageRoots() {
-    const nodes = new Set();
-    document.querySelectorAll(".im-mess-stack, .im-mess._im_mess").forEach((n) => nodes.add(n.classList.contains("im-mess-stack") ? n : n.closest(".im-mess-stack") || n));
-    document.querySelectorAll("article[class*='ConvoHistory__message'], [class*='ConvoHistory__messageBlock'], [class*='ConvoMessage'], [data-testid*='message']").forEach((n) => {
-      const block =
-        n.closest("article") ||
-        n.closest("[class*='ConvoHistory__messageBlock']") ||
-        n.closest("[class*='ConvoHistory__message']") ||
-        n;
-      nodes.add(block);
-    });
-    return [...nodes].filter(Boolean);
+    const sel = [
+      ".im-mess-stack",
+      "article[class*='ConvoHistory__message']",
+      "[class*='ConvoHistory__messageBlock']",
+      "[data-itemkey]"
+    ].join(",");
+    const all = [...document.querySelectorAll(sel)];
+    return all.filter((n) => !all.some((p) => p !== n && p.contains(n)));
   }
 
   function getUserInfo(root) {
-    const found = findAuthorLink(root);
-    const parsed = found?.parsed || null;
-    const name = (
-      found?.a?.textContent ||
-      root.querySelector(".im-mess-stack--lnk, [class*='Author'], [class*='author']")?.textContent ||
-      ""
-    ).trim();
+    const link = authorLink(root);
+    const parsed = link ? parseUserFromHref(link.getAttribute("href")) : null;
+    const title = root.querySelector("[class*='PeerTitle__title'], [class*='authorLink'], .im-mess-stack--lnk");
+    const name = (title?.textContent || link?.textContent || "").replace(/\s+/g, " ").trim();
     return {
-      id: collectNumericId(root) || parsed?.id || null,
-      nick: parsed?.id ? null : parsed?.nick || null,
+      id: parsed?.id || authorIdFromData(root),
+      nick: parsed?.nick || null,
       name,
-      link: found?.a || null
+      link
     };
+  }
+
+  function hasAvatar(root) {
+    return !!root.querySelector("img, [class*='Avatar'], [class*='avatar']");
   }
 
   function placeholderFor(root, info) {
@@ -301,8 +314,12 @@
     requestAnimationFrame(() => {
       scheduled = false;
       const roots = getMessageRoots();
+      let carried = null;
       for (const root of roots) {
-        const info = getUserInfo(root);
+        let info = getUserInfo(root);
+        if (info.id || info.nick || info.name) carried = info;
+        else if (carried && !hasAvatar(root)) info = carried;
+        else carried = null;
         ensureButton(root, info);
         applyMute(root, info);
       }

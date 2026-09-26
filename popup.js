@@ -160,6 +160,7 @@ function parseTarget(raw) {
 }
 
 loadState().then(render);
+document.getElementById("ver").textContent = chrome.runtime.getManifest().version;
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "sync" && changes.muted) loadState().then(render);
 });

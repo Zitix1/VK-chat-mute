@@ -162,13 +162,30 @@
     return scored[0] || null;
   }
 
-  function authorLink(root) {
-    const named = root.querySelector(
-      "a[class*='authorLink'], a[class*='Author'], .im-mess-stack--lnk, [class*='authorLink'] a[href], [class*='MessageHeader'] a[href], [class*='PeerTitle']"
-    );
-    const fromTitle = named?.closest?.("a[href]") || (named?.matches?.("a[href]") ? named : null);
-    if (fromTitle && parseUserFromHref(fromTitle.getAttribute("href"))) return fromTitle;
-    return findAuthorLink(root)?.a || null;
+  function headerLink(root) {
+    const all = [...root.querySelectorAll(
+      "a[class*='authorLink'], a[class*='AuthorLink'], .im-mess-stack--lnk, [class*='ConvoMessageHeader'] a[href], [class*='MessageHeader'] a[href]"
+    )];
+    const link = all.find((a) => {
+      if (!parseUserFromHref(a.getAttribute("href"))) return false;
+      return !a.closest("[class*='Reply'], [class*='reply'], [class*='Forward'], [class*='forward'], [class*='Quote'], [class*='quote']");
+    });
+    return link || null;
+  }
+
+  function readHeader(root) {
+    const link = headerLink(root);
+    if (!link) return null;
+    const parsed = parseUserFromHref(link.getAttribute("href")) || {};
+    const name = (link.querySelector("[class*='PeerTitle__title']")?.textContent || link.textContent || "")
+      .replace(/\s+/g, " ")
+      .trim();
+    return {
+      id: parsed.id || authorIdFromData(root),
+      nick: parsed.nick || null,
+      name,
+      link
+    };
   }
 
   function authorIdFromData(root) {
@@ -181,31 +198,23 @@
   }
 
   function getMessageRoots() {
-    const sel = [
-      ".im-mess-stack",
-      "article[class*='ConvoHistory__message']",
-      "[class*='ConvoHistory__messageBlock']",
-      "[data-itemkey]"
-    ].join(",");
-    const all = [...document.querySelectorAll(sel)];
-    return all.filter((n) => !all.some((p) => p !== n && p.contains(n)));
+    const all = [...document.querySelectorAll(".im-mess-stack, .im-mess, [class*='ConvoHistory__messageBlock']")];
+    return all.filter((n) => !all.some((c) => c !== n && n.contains(c)));
   }
 
-  function getUserInfo(root) {
-    const link = authorLink(root);
-    const parsed = link ? parseUserFromHref(link.getAttribute("href")) : null;
-    const title = root.querySelector("[class*='PeerTitle__title'], [class*='authorLink'], .im-mess-stack--lnk");
-    const name = (title?.textContent || link?.textContent || "").replace(/\s+/g, " ").trim();
-    return {
-      id: parsed?.id || authorIdFromData(root),
-      nick: parsed?.nick || null,
-      name,
-      link
-    };
+  function isOwn(root) {
+    const cls = String(root.className || "");
+    if (/mess_out|ConvoMessage--out|--out\b|isOutgoing/i.test(cls)) return true;
+    return !!root.querySelector("[class*='ConvoMessage--out'], .im-mess_out");
   }
 
-  function hasAvatar(root) {
-    return !!root.querySelector("img, [class*='Avatar'], [class*='avatar']");
+  function authorLinks(root) {
+    return [...root.querySelectorAll(
+      "a[class*='authorLink'], a[class*='AuthorLink'], .im-mess-stack--lnk, [class*='ConvoMessageHeader'] a[href]"
+    )].filter((a) => {
+      if (!parseUserFromHref(a.getAttribute("href"))) return false;
+      return !a.closest("[class*='Reply'], [class*='reply'], [class*='Forward'], [class*='forward'], [class*='Quote'], [class*='quote']");
+    });
   }
 
   function placeholderFor(root, info) {
@@ -225,6 +234,10 @@
   }
 
   function clearEffects(root) {
+    if (!root.classList.contains("vkcm-hidden") && !root.classList.contains("vkcm-collapsed") && !root.hasAttribute(PROCESSED)) {
+      const next = root.nextElementSibling;
+      if (!next || !next.classList.contains("vkcm-placeholder")) return;
+    }
     root.classList.remove("vkcm-hidden", "vkcm-collapsed");
     root.removeAttribute(PROCESSED);
     const next = root.nextElementSibling;
@@ -280,60 +293,112 @@
     toast("Мут снят");
   }
 
-  function ensureButton(root, info) {
-    if (!info.link && !info.id && !info.nick) return;
-    if (root.querySelector(`[${BTN_ATTR}]`)) {
-      const existing = root.querySelector(`[${BTN_ATTR}]`);
-      existing.classList.toggle("is-muted", isMuted(info));
-      existing.title = isMuted(info) ? "Снять мут" : "Скрыть сообщения этого человека";
-      return;
+  function ensureButton(info) {
+    if (!info?.link) return;
+    const parent = info.link.parentElement;
+    if (!parent) return;
+    parent.classList.add("vkcm-author-host");
+    const existing = [...parent.querySelectorAll(".vkcm-mute-btn")];
+    existing.slice(1).forEach((btn) => btn.remove());
+    let btn = existing[0];
+    if (!btn) {
+      btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "vkcm-mute-btn";
+      btn.setAttribute(BTN_ATTR, "1");
+      btn.textContent = "🔇";
+      btn.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const current = btn._vkcmInfo || info;
+        if (isMuted(current)) unmute(current);
+        else mute(current);
+      });
+      info.link.after(btn);
     }
-    const host = info.link?.parentElement || info.link || root.querySelector(".im-mess-stack--lnks") || root;
-    if (!host) return;
-    host.classList.add("vkcm-author-host");
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "vkcm-mute-btn";
-    btn.setAttribute(BTN_ATTR, "1");
-    btn.textContent = "🔇";
-    btn.title = isMuted(info) ? "Снять мут" : "Скрыть сообщения этого человека";
+    btn._vkcmInfo = info;
     btn.classList.toggle("is-muted", isMuted(info));
-    btn.addEventListener("click", (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      if (isMuted(info)) unmute(info);
-      else mute(info);
-    });
-    if (info.link) info.link.after(btn);
-    else host.append(btn);
+    btn.title = isMuted(info) ? "Снять мут" : "Скрыть сообщения этого человека";
   }
 
+  function dedupeButtons() {
+    const seen = new Set();
+    document.querySelectorAll(".vkcm-mute-btn").forEach((btn) => {
+      const host = btn.parentElement;
+      if (!host || seen.has(host)) btn.remove();
+      else seen.add(host);
+    });
+  }
+
+  let scanning = false;
+  let scrollPause = false;
+  let scanTimer = 0;
+
   function scan(force) {
-    if (scheduled && !force) return;
-    scheduled = true;
-    requestAnimationFrame(() => {
-      scheduled = false;
+    if (scrollPause && !force) return;
+    clearTimeout(scanTimer);
+    scanTimer = setTimeout(() => runScan(), force ? 0 : 200);
+  }
+
+  function runScan() {
+    if (scanning) return;
+    scanning = true;
+    observer.disconnect();
+    try {
       const roots = getMessageRoots();
       let carried = null;
       for (const root of roots) {
-        let info = getUserInfo(root);
-        if (info.id || info.nick || info.name) carried = info;
-        else if (carried && !hasAvatar(root)) info = carried;
-        else carried = null;
-        ensureButton(root, info);
-        applyMute(root, info);
+        if (isOwn(root)) {
+          carried = null;
+          clearEffects(root);
+          continue;
+        }
+        const links = authorLinks(root);
+        if (links.length > 1) {
+          carried = null;
+          clearEffects(root);
+          continue;
+        }
+        const header = links.length === 1 ? readHeader(root) : null;
+        if (header) {
+          carried = header;
+          ensureButton(header);
+        }
+        const info = header || carried;
+        if (info) applyMute(root, info);
+        else clearEffects(root);
       }
+      dedupeButtons();
       if (!enabled) {
         document.querySelectorAll(".vkcm-placeholder").forEach((n) => n.remove());
         document.querySelectorAll(".vkcm-hidden, .vkcm-collapsed").forEach((n) => {
           n.classList.remove("vkcm-hidden", "vkcm-collapsed");
         });
       }
-    });
+    } finally {
+      scanning = false;
+      observer.observe(document.documentElement, { childList: true, subtree: true });
+    }
   }
 
-  const observer = new MutationObserver(() => scan(false));
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+  const observer = new MutationObserver((mutations) => {
+    if (scanning || scrollPause) return;
+    const foreign = mutations.some((m) => {
+      const el = m.target.nodeType === 1 ? m.target : m.target.parentElement;
+      if (!el || el.closest?.(".vkcm-mute-btn, .vkcm-placeholder, .vkcm-toast")) return false;
+      return true;
+    });
+    if (foreign) scan(false);
+  });
+
+  window.addEventListener("scroll", () => {
+    scrollPause = true;
+    clearTimeout(scanTimer);
+    scanTimer = setTimeout(() => {
+      scrollPause = false;
+      scan(true);
+    }, 350);
+  }, true);
 
   load();
   scan(true);

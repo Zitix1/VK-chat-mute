@@ -164,13 +164,14 @@
 
   function headerLink(root) {
     const all = [...root.querySelectorAll(
-      "a[class*='authorLink'], a[class*='AuthorLink'], .im-mess-stack--lnk, [class*='ConvoMessageHeader'] a[href], [class*='MessageHeader'] a[href]"
+      "a[class*='authorLink'], a[class*='AuthorLink'], .im-mess-stack--lnk, [class*='ConvoMessageHeader'] a[href], [class*='MessageHeader'] a[href], a[class*='__avatar']"
     )];
-    const link = all.find((a) => {
+    const usable = all.filter((a) => {
       if (!parseUserFromHref(a.getAttribute("href"))) return false;
       return !a.closest("[class*='Reply'], [class*='reply'], [class*='Forward'], [class*='forward'], [class*='Quote'], [class*='quote']");
     });
-    return link || null;
+    const named = usable.find((a) => a.closest("[class*='ConvoMessageHeader'], [class*='MessageHeader'], [class*='author']"));
+    return named || usable[0] || null;
   }
 
   function readHeader(root) {
@@ -203,9 +204,13 @@
   }
 
   function isOwn(root) {
+    if (root.closest("[class*='ConvoStack--out'], .im-mess_out, [class*='mess-stack_out']")) return true;
     const cls = String(root.className || "");
-    if (/mess_out|ConvoMessage--out|--out\b|isOutgoing/i.test(cls)) return true;
-    return !!root.querySelector("[class*='ConvoMessage--out'], .im-mess_out");
+    return /mess_out|ConvoMessage--out|isOutgoing/i.test(cls);
+  }
+
+  function stackOf(root) {
+    return root.closest("section[class*='ConvoStack'], .im-mess-stack") || root;
   }
 
   function authorLinks(root) {
@@ -347,19 +352,19 @@
     try {
       const roots = getMessageRoots();
       let carried = null;
+      let carriedStack = null;
       for (const root of roots) {
+        const stack = stackOf(root);
+        if (stack !== carriedStack) {
+          carried = null;
+          carriedStack = stack;
+        }
         if (isOwn(root)) {
           carried = null;
           clearEffects(root);
           continue;
         }
-        const links = authorLinks(root);
-        if (links.length > 1) {
-          carried = null;
-          clearEffects(root);
-          continue;
-        }
-        const header = links.length === 1 ? readHeader(root) : null;
+        const header = readHeader(root);
         if (header) {
           carried = header;
           ensureButton(header);
